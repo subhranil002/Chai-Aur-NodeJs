@@ -1,6 +1,17 @@
 import { v2 as cloudinary } from "cloudinary";
 import fs from "fs";
 
+const deleteLocalFiles = (localFiles) => {
+    if (localFiles && localFiles.length > 0) {
+        for (let index = 0; index < localFiles.length; index++) {
+            const filePath = localFiles[index];
+            if (filePath !== "") {
+                fs.unlinkSync(filePath);
+            }
+        }
+    }
+};
+
 const handleUpload = async (localFilePath) => {
     if (!localFilePath) return null;
 
@@ -10,15 +21,15 @@ const handleUpload = async (localFilePath) => {
             folder: "Chai-Aur-NodeJS",
         });
 
-        fs.unlinkSync(localFilePath);
+        deleteLocalFiles([localFilePath]);
         console.log("File uploaded successfully");
 
         return response;
     } catch (error) {
-        fs.unlinkSync(localFilePath);
+        deleteLocalFiles([localFilePath]);
         console.log("File upload failed", error);
         return null;
     }
 };
 
-export { handleUpload };
+export { handleUpload, deleteLocalFiles };
