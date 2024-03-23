@@ -71,8 +71,8 @@ userSchema.methods = {
                 email: this.email,
                 fullName: this.fullName,
             },
-            constants.JWT_SECRET,
-            { expiresIn: constants.JWT_EXPIRE }
+            constants.ACCESS_TOKEN_SECRET,
+            { expiresIn: constants.ACCESS_TOKEN_EXPIRE }
         );
     },
     generateRefreshToken: function () {

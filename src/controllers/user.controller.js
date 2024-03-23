@@ -3,6 +3,8 @@ import ApiResponse from "../utils/ApiResponse.js";
 import ApiError from "../utils/ApiError.js";
 import { User } from "../models/user.model.js";
 import { handleUpload, deleteLocalFiles } from "../utils/handleCloudinary.js";
+import constants from "../constants.js";
+import jwt from "jsonwebtoken";
 
 const generateAccessAndRefreshToken = async (user) => {
     try {
@@ -14,7 +16,10 @@ const generateAccessAndRefreshToken = async (user) => {
 
         return { accessToken, refreshToken };
     } catch (error) {
-        throw new ApiError("Something went wrong while generating tokens", 500);
+        throw new ApiError(
+            `Something went wrong while generating tokens ${error}`,
+            500
+        );
     }
 };
 
@@ -155,4 +160,55 @@ export const logoutUser = asyncHandler(async (req, res, next) => {
         .clearCookie("accessToken", options)
         .clearCookie("refreshToken", options)
         .json(new ApiResponse("Logout successful", {}));
+});
+
+export const refreshAccessToken = asyncHandler(async (req, res, next) => {
+    try {
+        const cookieRefreshToken =
+            req.cookies.refreshToken || req.body.refreshToken;
+
+        if (!cookieRefreshToken) {
+            return next(new ApiError("Unauthorized request", 401));
+        }
+
+        const decoded = jwt.verify(
+            cookieRefreshToken,
+            constants.REFRESH_TOKEN_SECRET
+        );
+
+        if (!decoded) {
+            return next(new ApiError("Unauthorized request", 401));
+        }
+
+        const user = await User.findById(decoded?._id).select("-password");
+
+        if (!user) {
+            return next(new ApiError("Invalid access token", 401));
+        }
+
+        if (cookieRefreshToken !== user?.refreshToken) {
+            return next(new ApiError("Refresh token is expired or used", 401));
+        }
+
+        const { accessToken, refreshToken } =
+            await generateAccessAndRefreshToken(user);
+
+        const options = {
+            httpOnly: true,
+            secure: true,
+        };
+
+        return res
+            .status(200)
+            .cookie("accessToken", accessToken, options)
+            .cookie("refreshToken", refreshToken, options)
+            .json(
+                new ApiResponse("Access token refreshed successfully", {
+                    accessToken,
+                    refreshToken,
+                })
+            );
+    } catch (error) {
+        return next(new ApiError(error.message, 500));
+    }
 });
