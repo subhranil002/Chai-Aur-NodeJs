@@ -394,3 +394,70 @@ export const updateCoverImage = asyncHandler(async (req, res, next) => {
         return next(new ApiError(error.message, 500));
     }
 });
+
+export const getUserChannelProfile = asyncHandler(async (req, res, next) => {
+    try {
+        const { username } = req.params;
+
+        if (!username?.trim()) {
+            return next(new ApiError("Username is required", 400));
+        }
+
+        const channel = User.aggregate([
+            {
+                $match: {
+                    username: username?.toLowercase(),
+                },
+                $lookup: {
+                    from: "subscriptions",
+                    localField: "_id",
+                    foreignField: "channel",
+                    as: "subscribers",
+                },
+                $lookup: {
+                    from: "subscriptions",
+                    localField: "_id",
+                    foreignField: "subscriber",
+                    as: "subscribedTo",
+                },
+                $addFields: {
+                    subscribersCount: {
+                        $size: "$subscribers",
+                    },
+                    channelssubscribedToCount: {
+                        $size: "$subscribedTo",
+                    },
+                    isSubscribed: {
+                        $cond: {
+                            if: {
+                                $in: [req.user?._id, "$subscribers.subscriber"],
+                            },
+                            then: true,
+                            else: false,
+                        },
+                    },
+                },
+                $project: {
+                    fullName: 1,
+                    username: 1,
+                    avatar: 1,
+                    coverImage: 1,
+                    subscribersCount: 1,
+                    channelssubscribedToCount: 1,
+                    isSubscribed: 1,
+                    email: 1,
+                },
+            },
+        ]);
+
+        if (!channel?.length) {
+            return next(new ApiError("Channel not found", 404));
+        }
+
+        return res
+            .status(200)
+            .json(new ApiResponse("Channel fetched successfully", channel[0]));
+    } catch (error) {
+        return next(new ApiError(error.message, 500));
+    }
+});
