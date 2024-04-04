@@ -259,7 +259,11 @@ export const changePassword = asyncHandler(async (req, res, next) => {
 });
 
 export const getCurrentUser = asyncHandler(async (req, res, next) => {
-    res.status(200).json(new ApiResponse("Current user", req.user));
+    const user = await User.findById(req.user._id).select(
+        "-password -refreshToken"
+    );
+
+    res.status(200).json(new ApiResponse("Current user", user));
 });
 
 export const updateAccountDetails = asyncHandler(async (req, res, next) => {
@@ -460,4 +464,57 @@ export const getUserChannelProfile = asyncHandler(async (req, res, next) => {
     } catch (error) {
         return next(new ApiError(error.message, 500));
     }
+});
+
+export const getWatchHistory = asyncHandler(async (req, res, next) => {
+    const user = await User.aggregate([
+        {
+            $match: {
+                _id: new mongoose.Types.ObjectId(req.user._id),
+            },
+        },
+        {
+            $lookup: {
+                from: "videos",
+                localField: "watchHistory",
+                foreignField: "_id",
+                as: "watchHistory",
+                pipeline: [
+                    {
+                        $lookup: {
+                            from: "users",
+                            localField: "owner",
+                            foreignField: "_id",
+                            as: "owner",
+                            pipeline: [
+                                {
+                                    $project: {
+                                        fullName: 1,
+                                        username: 1,
+                                        avatar: 1,
+                                    },
+                                },
+                            ],
+                        },
+                    },
+                    {
+                        $addFields: {
+                            owner: {
+                                $arrayElemAt: ["$owner", 0],
+                            },
+                        },
+                    },
+                ],
+            },
+        },
+    ]);
+
+    return res
+        .status(200)
+        .json(
+            new ApiResponse(
+                "Watch history fetched successfully",
+                user[0].watchHistory
+            )
+        );
 });
