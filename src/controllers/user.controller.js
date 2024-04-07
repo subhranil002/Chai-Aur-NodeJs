@@ -160,11 +160,17 @@ export const loginUser = asyncHandler(async (req, res, next) => {
 });
 
 export const logoutUser = asyncHandler(async (req, res, next) => {
-    await User.findByIdAndUpdate(req.user._id, {
-        $set: {
-            refreshToken: null,
+    await User.findByIdAndUpdate(
+        req.user._id,
+        {
+            $unset: {
+                refreshToken: 1,
+            },
         },
-    });
+        {
+            new: true,
+        }
+    );
 
     const options = {
         httpOnly: true,
